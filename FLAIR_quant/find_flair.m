@@ -8,9 +8,10 @@ directoryNames = directoryNames(~ismember(directoryNames,{'.','..'}));
 
 % Loop thru all subdirectories
 for sub_dir = directoryNames
-   dir_path = fullfile(patient_dir, sub_dir);
-   test_loc = dir(dir_path);
-   test_img = spm_dicom_headers(fullfile(patient_dir, sub_dir, test_loc(4).name));
+   dir_path = fullfile(patient_path, sub_dir);
+   test_loc = dir(dir_path{1});
+   test_img_path = fullfile(patient_path, sub_dir, test_loc(4).name);
+   test_img = spm_dicom_headers(test_img_path{1});
    
    if strcmp(test_img{1,1}.SeriesDescription, 'AX FLAIR')
         FLAIR_path = dir_path;
