@@ -1,21 +1,33 @@
-function FLAIR_path = find_flair(patient_path)
-% Need to work through a dir full of MRI dirs and return the path
-% corresponding to the one with T2 FLAIR
+function FLAIR_path = find_flair()
+% Need to work through a dir full of MRI dirs
+% Generate the lesion area using the lesion prediction algorithm
 
-files = dir(patient_path);
-directoryNames = {files([files.isdir]).name};
-directoryNames = directoryNames(~ismember(directoryNames,{'.','..'}));
+
+D = dir;
+D = D(~ismember({D.name}, {'.', '..'}));
 
 % Loop thru all subdirectories
-for sub_dir = directoryNames
-   dir_path = fullfile(patient_path, sub_dir);
-   test_loc = dir(dir_path{1});
-   test_img_path = fullfile(patient_path, sub_dir, test_loc(4).name);
-   test_img = spm_dicom_headers(test_img_path{1});
-   
-   if strcmp(test_img{1,1}.SeriesDescription, 'AX FLAIR')
-        FLAIR_path = dir_path;
-        break;
-   end
+lesions = {};
+% for k = 1:numel(D)
+for k = 1:2
+    currD = D(k).name;
+    cd(currD);
+    
+    % load all images
+    images = dir;
+    images = images(~ismember({images.name}, {'.', '..'}));
+    images = {images.name};
+    images = arrayfun(@(x) fullfile(pwd, filesep, x), images);
+    images = char(images);
+    
+    % convert to nii
+    header_array = spm_dicom_headers(images); 
+    nifti_image = spm_dicom_convert(header_array, 'all', 'flat', 'nii');
+    
+    % run LST algo on nii
+    nifti = char(nifti_image(1).files);
+    ps_LST_lpa(nifti, '');
+    
+    cd ..
 end
 end
