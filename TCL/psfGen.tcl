@@ -1,83 +1,84 @@
 proc loadAll {} {
 	foreach n {0 1 2 3 4 5 6 7 8 9 10 11} {
 		mol new ff${n}.pdb
-		mol addfile ff${n}.psf
 	}
 }
 
-proc psfAll {} {
+proc psfAll {n} {
 	package require psfgen
 	package require topotools
+	resetpsf
 
-	foreach n [molinfo list] {
-		psfcontext reset
-		resetpsf
-		topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_prot.rtf
-		set chainA A_$n.pdb
-		[atomselect $n "chain A"] writepdb $chainA
-		segment "A" {pdb $chainA}
-		coordpdb $chainA "A"
-		guesscoord
+	# top is now the newly loaded mol
+	mol new $n
 
-		set name [molinfo $n get "name"]
-		set autoNameA ${name}_Aauto
-		writepdb $autoNameA.pdb
-		writepsf $autoNameA.psf
+	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_prot.rtf
+	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_lipid.rtf
+	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_na.rtf
+	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_carb.rtf
+	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_cgenff.rtf
+	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/toppar_all36_carb_glycopeptide.str
+	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/toppar_water_ions_namd.str
+	topology /home/josh/Desktop/9_3_tubBendPMF/equils/0/parameters/toppar_all36_na_nad_ppi_gdp_gtp.str
 
-		########
-		resetpsf
-		topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_prot.rtf
-		set chainB B_$n.pdb
-		[atomselect $n "chain B"] writepdb $chainB
-		segment "B" {pdb $chainB}
-		coordpdb $chainB "B"
-		guesscoord
+	proc chainGen {chain sel} {
+		# segment by selection into a new chain file
+		set chainPDB ${chain}.pdb
+		[atomselect top $sel] writepdb $chainPDB
 
-		set autoNameB ${name}_Bauto
-		writepdb $autoNameB.pdb
-		writepsf $autoNameB.psf
-
-		########
-		set midlist {}
-		set mol [mol new $autoNameA.pdb waitfor all]
-		mol addfile $autoNameA.psf
-		lappend midlist $mol
-		set mol [mol new $autoNameB.pdb waitfor all]
-		mol addfile $autoNameB.psf
-		lappend midlist $mol
-		set mol [::TopoTools::mergemols $midlist]
-		animate write psf ${name}_auto.psf $mol
-		animate write pdb ${name}_auto.pdb $mol
-		lappend midList $mol
-
-		foreach m $midList {
-			mol delete $m
-		}
-
-		########
-		file delete $chainA
-		file delete $chainB
-		file delete $autoNameA.pdb
-		file delete $autoNameA.psf
-		file delete $autoNameB.pdb
-		file delete $autoNameB.psf
+		# segment on the newly created PDB
+		segment $chain {pdb $chainPDB}
+		coordpdb $chainPDB $chain
 	}
+
+	chainGen A "chain A"
+	chainGen B "chain B"
+	chainGen X "chain X"
+	chainGen Y "chain Y"
+	chainGen Z "chain Z"
+
+	guesscoord
+	writepdb protein_3.pdb
+	writepsf protein_3.psf
 }
 
 # move a to b and add GTP and GDP and MG from a to b
+# this should be called from the directory above the
+# directories that hold a and b
 proc nucMov {a b} {
 
-	set neighborsA [atomselect $a "name CA and within 7 of (resname GTP or resname GDP)"]
+	set chainAa [atomselect $a "chain A"]
+	set chainAb [atomselect $b "chain A"]
+	[atomselect $a "chain X or chain Z"] move [measure fit $chainAa $chainAb]
 
-	set query ""
-	foreach r [$neighborsA get resid] {
-		append query " or resid ${r}"
-	}
-	set query [string range $query 4 [expr [string length $query] - 1]]
+	set chainBa [atomselect $a "chain B"]
+	set chainBb [atomselect $b "chain B"]
+	[atomselect $a "chain Y"] move [measure fit $chainBa $chainBb]
 
-	
+	set sellist {}
+	lappend sellist [atomselect $a "chain X or chain Y or chain Z"]
+	lappend sellist [atomselect $b "protein"]
 
+	set mol [::TopoTools::selections2mol $sellist]
+	animate write psf protein_merge.psf $mol
+	animate write pdb protein_merge.pdb $mol
 }
 
+# prepare by solvating and adding ions
+# hardcoded center based on tubulin post molmov
+# this should be run after the tubulin gets its
+# GTP, GDP and MG
+proc prepare {} {
+	package require psfgen 1.5
+	package provide solvate 1.7
+	package require autoionize
 
-namdenergy -sel [atomselect top "resid gt 434 and protein"] -vdw -ofile "out.dat" -par /home/josh/Desktop/10_11/parameters/par_all36_na.prm -par /home/josh/Desktop/10_11/parameters/par_all36_cgenff.prm -par /home/josh/Desktop/10_11/parameters/par_all36_carb.prm -par /home/josh/Desktop/10_11/parameters/par_all36_na.prm -par /home/josh/Desktop/10_11/parameters/par_all36_prot.prm -par /home/josh/Desktop/10_11/parameters/toppar_all36_carb_glycopeptide.str -par /home/josh/Desktop/10_11/parameters/toppar_all36_na_nad_ppi_gdp_gtp.str -par /home/josh/Desktop/10_11/parameters/toppar_water_ions_namd.str -par /home/josh/Desktop/10_11/parameters/par_all36_lipid.prm
+	solvate protein.psf protein.pdb -o protein -minmax {{-55 -77 -70} {95 73 80}}
+	autoionize -psf protein.psf -pdb protein.pdb -neutralize -o protein
+
+	set all [atomselect top all]
+	set pro [atomselect top "protein and backbone"]
+	$all set beta 0
+	$pro set beta 1
+	$all writepdb "protein_restraints.pdb"
+}
