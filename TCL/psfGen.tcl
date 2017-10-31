@@ -4,13 +4,13 @@ proc loadAll {} {
 	}
 }
 
-proc psfAll {n} {
+proc psfAll {} {
+	# top is now the newly loaded mol
+	mol new "protein.pdb"
+
 	package require psfgen
 	package require topotools
 	resetpsf
-
-	# top is now the newly loaded mol
-	mol new $n
 
 	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_prot.rtf
 	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_lipid.rtf
@@ -38,8 +38,8 @@ proc psfAll {n} {
 	chainGen Z "chain Z"
 
 	guesscoord
-	writepdb protein_3.pdb
-	writepsf protein_3.psf
+	writepdb "protein.pdb"
+	writepsf "protein.psf"
 }
 
 # move a to b and add GTP and GDP and MG from a to b
@@ -60,8 +60,8 @@ proc nucMov {a b} {
 	lappend sellist [atomselect $b "protein"]
 
 	set mol [::TopoTools::selections2mol $sellist]
-	animate write psf protein_merge.psf $mol
-	animate write pdb protein_merge.pdb $mol
+	animate write psf protein.psf $mol
+	animate write pdb protein.pdb $mol
 }
 
 # prepare by solvating and adding ions
@@ -72,6 +72,7 @@ proc prepare {} {
 	package require psfgen 1.5
 	package provide solvate 1.7
 	package require autoionize
+	resetpsf
 
 	solvate protein.psf protein.pdb -o protein -minmax {{-55 -77 -70} {95 73 80}}
 	autoionize -psf protein.psf -pdb protein.pdb -neutralize -o protein
