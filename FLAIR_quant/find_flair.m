@@ -8,10 +8,10 @@ D = D(~ismember({D.name}, {'.', '..'}));
 
 % Loop thru all subdirectories
 lesions = {};
-% for k = 1:numel(D)
-for k = 1:2
+for k = 1:numel(D)
     currD = D(k).name;
     cd(currD);
+    cd('FLAIR');
     
     % load all images
     images = dir;
@@ -28,6 +28,6 @@ for k = 1:2
     nifti = char(nifti_image(1).files);
     ps_LST_lpa(nifti, '');
     
-    cd ..
+    cd ../..
 end
 end
