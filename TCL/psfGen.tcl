@@ -4,13 +4,13 @@ proc loadAll {} {
 	}
 }
 
-proc psfAll {} {
-	# top is now the newly loaded mol
-	mol new "protein.pdb"
-
+proc psfAll {n} {
 	package require psfgen
 	package require topotools
 	resetpsf
+
+	# top is now the newly loaded mol
+	mol new $n
 
 	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_prot.rtf
 	topology /usr/local/lib/vmd/plugins/noarch/tcl/readcharmmtop1.2/top_all36_lipid.rtf
@@ -38,8 +38,8 @@ proc psfAll {} {
 	chainGen Z "chain Z"
 
 	guesscoord
-	writepdb "protein.pdb"
-	writepsf "protein.psf"
+	writepdb protein_3.pdb
+	writepsf protein_3.psf
 }
 
 # move a to b and add GTP and GDP and MG from a to b
@@ -60,8 +60,8 @@ proc nucMov {a b} {
 	lappend sellist [atomselect $b "protein"]
 
 	set mol [::TopoTools::selections2mol $sellist]
-	animate write psf protein.psf $mol
-	animate write pdb protein.pdb $mol
+	animate write psf protein_merge.psf $mol
+	animate write pdb protein_merge.pdb $mol
 }
 
 # prepare by solvating and adding ions
@@ -72,7 +72,6 @@ proc prepare {} {
 	package require psfgen 1.5
 	package provide solvate 1.7
 	package require autoionize
-	resetpsf
 
 	solvate protein.psf protein.pdb -o protein -minmax {{-55 -77 -70} {95 73 80}}
 	autoionize -psf protein.psf -pdb protein.pdb -neutralize -o protein
@@ -82,4 +81,33 @@ proc prepare {} {
 	$all set beta 0
 	$pro set beta 1
 	$all writepdb "protein_restraints.pdb"
+}
+
+# for looping thru and building each
+foreach n {4 5 6 7} {
+	cd $n
+	if {$n != 10} {
+		# load the last images
+		set m [mol new "../[expr {$n - 1}]/protein.psf"]
+		mol addfile "../[expr {$n - 1}]/npt.restart.coor"
+		set o [mol new protein.pdb]
+
+		# move the nucleotides and MG
+		nucMov $m $o
+
+		# PSF generate
+		psfAll
+
+		#prepare for MD
+		prepare
+	}
+
+	foreach n [molinfo list] {
+		mol delete $n
+	}
+
+	namd2 $sets $min
+	namd2 $sets $nvt
+	namd2 $sets $npt
+	cd ".."
 }
