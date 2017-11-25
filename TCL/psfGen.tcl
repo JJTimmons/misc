@@ -111,3 +111,16 @@ foreach n {4 5 6 7} {
 	namd2 $sets $npt
 	cd ".."
 }
+
+# look thru each to check for current bend
+set m [mol new 0/protein.psf]
+mol addfile 0/npt.restart.coor
+foreach n {1 2 3 4 5 6 7 8 9 10} {
+	set o [mol new ${n}/protein.psf]
+	mol addfile ${n}/npt.restart.coor
+	
+	set a [atomselect $m "name CA and (resid 206 to 215 or resid 224 to 242 or resid 252 to 259 or resid 290 to 300 or resid 325 to 335 or resid 269 to 272 or resid 312 to 320 or resid 352 to 356 or resid 377 to 381)"]
+	set b [atomselect $o "name CA and (resid 206 to 215 or resid 224 to 242 or resid 252 to 259 or resid 290 to 300 or resid 325 to 335 or resid 269 to 272 or resid 312 to 320 or resid 352 to 356 or resid 377 to 381)"]
+
+	puts [measure rmsd $a $b]
+}
