@@ -113,6 +113,9 @@ foreach n {4 5 6 7} {
 }
 
 # look thru each to check for current bend
+foreach n [molinfo list] {
+	mol delete $n
+}
 set m [mol new 0/protein.psf]
 mol addfile 0/npt.restart.coor
 foreach n {1 2 3 4 5 6 7 8 9 10} {
